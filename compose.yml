@@ -1,0 +1,61 @@
+name: mordheim
+
+services:
+  database:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mordheim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mordheim}
+      POSTGRES_DB: ${POSTGRES_DB:-mordheim}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - mordheim-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-mordheim}:${POSTGRES_PASSWORD:-mordheim}@database:5432/${POSTGRES_DB:-mordheim}
+      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-5173}
+    ports:
+      - "${BACKEND_PORT:-4000}:4000"
+    depends_on:
+      database:
+        condition: service_healthy
+    command: ["sh", "-c", "npm run migrate:latest && npm start"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4000/api}
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      HOST: 0.0.0.0
+    ports:
+      - "${FRONTEND_PORT:-5173}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  mordheim-pgdata:
+
+
