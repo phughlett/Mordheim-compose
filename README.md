@@ -70,12 +70,13 @@ Warrior-type lookups include `maxCount`, `maxCountReferenceTypes`, and `maxCount
 ## Sharing and testing
 
 - **Freebuild**: choose "Freebuild (no campaign)" in the campaign menu to build warbands outside any campaign (you enter the starting GC when creating; default 500, treasury stays editable). They can be shared by code like any other warband.
-- Freebuild can record mature warriors' experience at any time, including values
-  beyond the printed experience tracks. The table and details panel both support
-  this; the printed track and advancement thresholds remain unchanged. Experience
+- Freebuild can record mature warriors' experience at any time. Heroes are capped
+  at 90 XP and Henchmen at 14 XP in both Freebuild and campaigns, in the table,
+  details panel, and API. Experience
   must be a non-negative whole number within database storage limits. Warrior
   types that cannot gain XP, starting-XP floors, and recorded-advance/promotion
-  floors still apply. Campaign warbands retain campaign timing and XP caps.
+  floors still apply. Campaign XP changes are permitted only during post-battle
+  step 2, "Allocate experience".
 - Campaign members can view each other's warbands read-only. Only the owner can edit.
 - An owner can press **Share warband** to get a code; any signed-in user can enter it under "Shared warband code" for read-only access. **Stop sharing** revokes it.
 - Backend integration tests (two or three users against the compose database, test data cleaned up afterwards):
