@@ -57,6 +57,7 @@ Warrior-type lookups include `maxCount`, `maxCountReferenceTypes`, and `maxCount
 
 ## Sharing and testing
 
+- **Freebuild**: choose "Freebuild (no campaign)" in the campaign menu to build warbands outside any campaign (default 500 GC, editable). They can be shared by code like any other warband.
 - Campaign members can view each other's warbands read-only. Only the owner can edit.
 - An owner can press **Share warband** to get a code; any signed-in user can enter it under "Shared warband code" for read-only access. **Stop sharing** revokes it.
 - Backend integration tests (two or three users against the compose database, test data cleaned up afterwards):
