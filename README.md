@@ -78,6 +78,10 @@ Warrior-type lookups include `maxCount`, `maxCountReferenceTypes`, and `maxCount
   floors still apply. Campaign XP changes are permitted only during post-battle
   step 2, "Allocate experience".
 - Campaign members can view each other's warbands read-only. Only the owner can edit.
-- An owner can press **Share warband** to get a code; any signed-in user can enter it under "Shared warband code" for read-only access. **Stop sharing** revokes it.
+- An owner can press **Share warband** to get a clickable link and use **Copy link**
+  to send it to a friend. Opening the link prompts for sign-in or registration if
+  needed, then opens the warband read-only without granting campaign membership.
+  Codes still work under "Shared warband code". **Stop sharing** revokes the link,
+  code, and redeemed sharing access; campaign members retain campaign viewing.
 - Backend integration tests (two or three users against the compose database, test data cleaned up afterwards):
   `docker compose exec backend npm test`
