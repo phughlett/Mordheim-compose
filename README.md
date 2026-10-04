@@ -27,6 +27,14 @@ Database migrations run when the backend container starts. Compose keeps databas
 
 API requests are logged as JSON lines in the backend container. View them with `docker compose logs -f backend`.
 
+## Production deployment
+
+The shared production stack for Dawnbreaker and Mordheim is maintained separately
+in [hughlett-web-deploy](https://github.com/phughlett/hughlett-web-deploy).
+That repository contains one Compose file, one reverse proxy, and a script to
+clone or update all four application repositories. This repository remains the
+standalone Mordheim development stack.
+
 ## API
 
 - `GET /api/health` checks the API and database connection.
