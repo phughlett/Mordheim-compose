@@ -165,7 +165,12 @@ Automated tests mock GitHub and create no live issues.
 
 ## Sharing and testing
 
-- **Freebuild**: choose "Freebuild (no campaign)" in the campaign menu to build warbands outside any campaign (you enter the starting GC when creating; default 500, treasury stays editable). They can be shared by code like any other warband.
+- **Freebuild**: choose "Freebuild (no campaign)" in the campaign menu to build warbands outside any campaign (you enter the starting Gold Crowns when creating; default 500). Gold Crowns and Wyrdstone are editable, saved balances; Wyrdstone starts at zero. Both are included in print/PDF exports. Warbands can be shared by code like any other warband.
+- **Campaign currency**: Gold Crowns and Wyrdstone are read-only in the overview
+  and cannot be edited directly through the API. Starting Gold Crowns still come
+  from the campaign's limit, and hiring, purchases, and equipment sales continue
+  to adjust gold normally. Wyrdstone sales and campaign earnings tracking are
+  planned, not implemented yet.
 - Freebuild can record mature warriors' experience at any time. Heroes are capped
   at 90 XP and Henchmen at 14 XP in both Freebuild and campaigns, in the table,
   details panel, and API. Experience
