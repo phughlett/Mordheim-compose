@@ -63,6 +63,12 @@ a Hired Sword to choose a different type; names and notes remain editable.
 
 Henchmen are stored as groups of 1–5 models. Each group has one shared stat and experience record; roster capacity and type caps count every model in the group. Lad's Got Talent promotion splits one model into a Hero and leaves the remaining group intact.
 
+Group counts in roster rows are read-only. In member details, **Hire one**
+charges the model's hire fee and checks available GC, capacity, and type limits.
+**Remove one** refunds the model's hire fee like removing the group and discards
+its individual inventory. Campaign hiring/removal permissions apply; the last
+model is removed using the roster's Remove action.
+
 Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`. Items marked first-free are added to inventory automatically for existing warriors and at recruitment, one per Henchman model; additional copies are charged. Paid equipment sales refund the recorded purchase cost, while free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
 
 Warrior-type lookups include `maxCount`, `maxCountReferenceTypes`, and `maxCountMultiplier`. A null `maxCount` with no reference types means no per-type cap was defined in the catalog; fixed and dependent caps are enforced by both the API and roster selectors.
