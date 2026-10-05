@@ -120,6 +120,49 @@ Existing campaigns keep purchases disabled.
 
 Warrior-type lookups include `maxCount`, `maxCountReferenceTypes`, and `maxCountMultiplier`. A null `maxCount` with no reference types means no per-type cap was defined in the catalog; fixed and dependent caps are enforced by both the API and roster selectors.
 
+## Correction submissions
+
+**Report a correction** is available on the sign-in screen and in the roster
+sidebar, including for anonymous visitors. A short summary and an explanation
+of what is incorrect are required; an HTTP/HTTPS rule-reference URL is optional.
+Visitors must consent to publishing the text/link on GitHub. No account details,
+roster information, or email addresses are automatically attached.
+
+The backend creates a real issue in `phughlett/Mordheim-compose` and adds it to
+[Project 5](https://github.com/users/phughlett/projects/5). Configure the
+`CORRECTIONS_*` values in [.env.example](.env.example) before
+use. Missing credentials leave the form explicitly unavailable.
+
+- GitHub: a classic PAT needs `public_repo` for public-repository issue writes
+  (or `repo` for private repositories), plus `project` for the user-owned Project.
+  The repository must have Issues enabled, and the token's user must have
+  repository/Project access. Do not paste tokens into chat or commit them.
+- Set `CORRECTIONS_RATE_LIMIT_SECRET` to a stable random secret of at least 32
+  characters, for example generated with `openssl rand -hex 32`. It is used to
+  hash IP-based rate-limit keys; do not commit it. Recreate the backend container
+  after changing settings.
+- PostgreSQL-backed limits allow five attempts per IP (IPv6 /64) per hour and
+  100 total per hour. A hidden spam-trap field is also validated. No CAPTCHA or
+  Cloudflare account is required; these measures reduce spam but do not prevent
+  all automated abuse. Reference links are stored in the issue, never fetched
+  by the API.
+- `GET /api/corrections/config` provides availability and destination links.
+  `POST /api/corrections` accepts `id` (UUID v4), `title` (5–120 characters),
+  `explanation` (20–10,000 characters), optional `referenceUrl`, `consent: true`,
+  and the empty spam-trap `website` field.
+- A submission receipt persists across API restarts. Browser session storage
+  preserves a pending submission and its ID across reopening/reloading the form.
+  If issue creation succeeds but Project linking fails, the response explicitly
+  reports partial completion and retry links the existing issue. Unknown issue
+  creation outcomes are blocked from automatic recreation: search GitHub for the
+  displayed submission ID and reconcile the `correction_submissions` record
+  before retrying. The local receipt does not store submitted text or raw IPs.
+
+The production deployment repository includes the environment wiring and trusts
+one reverse-proxy hop for IP limiting. Local Compose leaves proxy trust disabled;
+never trust forwarded IP headers when the API is directly exposed.
+Automated tests mock GitHub and create no live issues.
+
 ## Sharing and testing
 
 - **Freebuild**: choose "Freebuild (no campaign)" in the campaign menu to build warbands outside any campaign (you enter the starting GC when creating; default 500, treasury stays editable). They can be shared by code like any other warband.
