@@ -171,6 +171,8 @@ Automated tests mock GitHub and create no live issues.
   from the campaign's limit, and hiring, purchases, and equipment sales continue
   to adjust gold normally. Wyrdstone sales and campaign earnings tracking are
   planned, not implemented yet.
+- Editable Freebuild currency balances have bordered input boxes and an
+  automatic-save hint; these editing cues are not shown on read-only warbands.
 - Freebuild can record mature warriors' experience at any time. Heroes are capped
   at 90 XP and Henchmen at 14 XP in both Freebuild and campaigns, in the table,
   details panel, and API. Experience
