@@ -46,14 +46,34 @@ standalone Mordheim development stack.
 - `POST /api/rosters/:rosterId/members`
 - `PATCH` and `DELETE /api/members/:memberId`
 - `POST /api/members/:memberId/promote` promotes a Henchman only when its type is marked eligible for Lad's Got Talent.
+- `POST /api/members/:memberId/advance-purchases` buys an initial campaign Hero advancement with either `{ "stat": "A" }` or `{ "skillId": "..." }`, using the campaign's configured prices and limits.
+- `DELETE /api/members/:memberId/advances/:advanceId` undoes an eligible advancement; purchased awards refund their recorded price and reverse their purchased XP.
 - `GET /api/members/:memberId/equipment` returns the warrior's permitted equipment options and owned inventory.
+- `PUT /api/members/:memberId/mutations` replaces a Freebuild warrior's ordered mutation selections with `{ "mutationIds": ["..."] }`, charging or refunding the repriced difference. Campaign selections are fixed at recruitment.
 - `POST /api/members/:memberId/equipment` buys an item with `{ "equipmentOptionId": "...", "quantity": 1, "modelIndex": -1 }`. A model index of `-1` applies an item to the whole Henchman group; otherwise it targets one model when the source permits individual group gear.
 - `DELETE /api/members/:memberId/equipment` removes the listed paid inventory rows with `{ "inventoryItemIds": ["..."] }` and refunds their recorded total cost atomically. Free equipment cannot be sold.
 - `DELETE /api/members/:memberId/equipment/:inventoryItemId` removes one paid inventory row and refunds its recorded cost.
 
 The backend migrations create roster tables plus `warbands`, `warrior_types`, and `warband_warrior_types` lookup tables. Warrior types also record promotion eligibility as `eligible`, `ineligible`, `unverified`, or `not_applicable`. The workbook's Hero dropdown whitelist is used for Henchmen; explicit rulebook exclusions override it. Only eligible Henchmen get a promotion action, and the API enforces the same rule. Set `VITE_API_BASE_URL` in `.env` if the API is exposed at a different URL; this value is baked into the frontend image at build time.
 
-Warband limits are stored per warband: 6 Heroes and 15 warriors by default, with cited overrides such as Dwarf Treasure Hunters/Shadow Warriors (12) and Skaven/Orcs/Night Goblins (20). Halfling Scouts and an assigned Halfling Cookbook each add one warrior slot; the Cookbook is unavailable to Undead and Carnival of Chaos. The API enforces Hero and total-member limits on both recruitment and promotion.
+Warband limits are stored per warband: 6 Heroes by default, with base model
+maximums audited against the local warband PDFs in
+[`backend/warband-capacity.json`](backend/warband-capacity.json):
+
+| Base maximum | Warbands |
+| --- | --- |
+| 12 | Bretonnian, Dark Elves, Dwarf Treasure Hunters, Shadow Warrior, Witch Hunters |
+| 20 | Lizardmen, Night Goblins, Orc, Skaven |
+| 15 | Amazons, Averlander Mercenaries, Beastmen Raiders, Carnival of Chaos, Cult of the Possessed, Kislevite, Mercenaries, Norse, Ostlanders, Pirate, Pit Fighter, Sisters of Sigmar, Undead, Marauders of Chaos, Battle Monks of Cathay |
+
+The Marauders reference gives Hung tribes a base limit of 12 rather than 15;
+tribe selection is not currently supported, so the catalog uses the general
+Marauders limit. Referenced encampment increases are not automatically applied.
+Halfling Scouts and an assigned Halfling Cookbook each add one warrior slot;
+the Cookbook is unavailable to Undead and Carnival of Chaos. Hired Swords do
+not count toward the model cap. The API enforces Hero and total-member limits
+on recruitment, group resizing, and promotion. The audit migration updates
+existing warbands without deleting warriors from rosters above a corrected cap.
 
 Per-type caps are stored on each warband/type association. The sourced rules include fixed limits and dependent limits such as Cave Squigs per Night Goblin and Pirate Swabbies per Crew member. Recruitment and type changes enforce these limits in the API as well as disabling full types in the frontend.
 
@@ -70,6 +90,33 @@ its individual inventory. Campaign hiring/removal permissions apply; the last
 model is removed using the roster's Remove action.
 
 Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`. Items marked first-free are added to inventory automatically for existing warriors and at recruitment, one per Henchman model; additional copies are charged. Paid equipment sales refund the recorded purchase cost, while free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
+
+Cult of the Possessed mutations are tracked as special equipment in warrior
+inventory. Campaign Mutants must choose at least one mutation at recruitment;
+Possessed may choose mutations optionally. The first selection costs its listed
+price and every additional selection costs double, charged together with the
+hire fee. Campaign mutations are permanent and cannot be bought later, sold,
+or transferred. Freebuild permits later editing, charging or refunding the
+difference after repricing the selection. A Mutant without a mutation is flagged
+in details; existing campaign warriors are not silently altered or charged.
+Mutation effects are displayed, not automatically applied to base characteristics.
+Rules and prices are sourced from `2Warbands.pdf`, Cult of the Possessed,
+Mutations (page 14).
+
+Campaign creation includes optional paid stat/skill advancements for Heroes
+during initial roster creation only (not Freebuild, Henchmen, or Hired Swords).
+The creator can customize first/additional prices and a purchased-increase cap
+per characteristic; blank caps mean unlimited purchases within racial stat
+limits and the 90 XP Hero track. Defaults are M/WS/BS/Ld 15 GC, I 10 GC,
+S/A 25 then 35 GC, T 30 then 45 GC, W 20 then 30 GC, and skills 40 GC.
+Each purchased stat allows one purchased skill from the Hero's normal skill
+lists. Both stat and skill purchases raise experience to the next Hero
+advancement threshold and create an already-resolved advancement, so no extra
+advance is awarded for the purchased XP. Paid costs and prior XP are recorded.
+During initial creation, undoing the latest purchase (or forgetting its skill)
+refunds its recorded price and restores its stat/XP effect. Later awards must be
+undone first; refunds are blocked after subsequent XP gains or roster creation.
+Existing campaigns keep purchases disabled.
 
 Warrior-type lookups include `maxCount`, `maxCountReferenceTypes`, and `maxCountMultiplier`. A null `maxCount` with no reference types means no per-type cap was defined in the catalog; fixed and dependent caps are enforced by both the API and roster selectors.
 
