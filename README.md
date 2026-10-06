@@ -51,8 +51,8 @@ standalone Mordheim development stack.
 - `GET /api/members/:memberId/equipment` returns the warrior's permitted equipment options and owned inventory.
 - `PUT /api/members/:memberId/mutations` replaces a Freebuild warrior's ordered mutation selections with `{ "mutationIds": ["..."] }`, charging or refunding the repriced difference. Campaign selections are fixed at recruitment.
 - `POST /api/members/:memberId/equipment` buys an item with `{ "equipmentOptionId": "...", "quantity": 1, "modelIndex": -1 }`. A model index of `-1` applies an item to the whole Henchman group; otherwise it targets one model when the source permits individual group gear.
-- `DELETE /api/members/:memberId/equipment` removes the listed paid inventory rows with `{ "inventoryItemIds": ["..."] }` and refunds their recorded total cost atomically. Free equipment cannot be sold.
-- `DELETE /api/members/:memberId/equipment/:inventoryItemId` removes one paid inventory row and refunds its recorded cost.
+- `DELETE /api/members/:memberId/equipment` removes inventory rows with `{ "inventoryItemIds": ["..."] }` atomically. During creation it refunds recorded cost; after creation it pays half the listed base price, rounded down per copy. Free starter gear, bound items and permanent poisoned weapons cannot be sold.
+- `DELETE /api/members/:memberId/equipment/:inventoryItemId` applies the same refund/resale rules to one inventory row; shared Henchman gear must be sold together for every model.
 
 The backend migrations create roster tables plus `warbands`, `warrior_types`, and `warband_warrior_types` lookup tables. Warrior types also record promotion eligibility as `eligible`, `ineligible`, `unverified`, or `not_applicable`. The workbook's Hero dropdown whitelist is used for Henchmen; explicit rulebook exclusions override it. Only eligible Henchmen get a promotion action, and the API enforces the same rule. Set `VITE_API_BASE_URL` in `.env` if the API is exposed at a different URL; this value is baked into the frontend image at build time.
 
@@ -108,7 +108,7 @@ charges the model's hire fee and checks available GC, capacity, and type limits.
 its individual inventory. Campaign hiring/removal permissions apply; the last
 model is removed using the roster's Remove action.
 
-Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`. Items marked first-free are added to inventory automatically for existing warriors and at recruitment, one per Henchman model; additional copies are charged. Paid equipment sales refund the recorded purchase cost, while free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
+Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`. Items marked first-free are added to inventory automatically for existing warriors and at recruitment, one per Henchman model; additional copies are charged. Creation refunds return recorded purchase cost; later sales pay half the listed base price. Free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
 
 Pistols, duelling pistols, and warplock pistols can be bought singly or as a
 named **Brace** option wherever the single pistol is permitted. A brace costs
@@ -163,17 +163,30 @@ a warrior dies; carried gear is lost. Use **Record death** during post-battle
 injuries rather than removing a hire: deaths never refund hire fees or equipment.
 For Henchmen, choose the dead model; only that model and its gear are removed.
 
-The **Trading shop** uses the local `3Campaigns.pdf` Price chart, with Common
-items, rare items, and base-plus-dice prices. Buying places equipment in the
+The **Trading shop** includes every **Core, 1a and 1b** row from the
+[New Mordheimer Trading Post](https://mordheimer.net/docs/trading-post):
+178 source rows represented by 203 purchasable entries, including brace,
+weapon-material and Dark Elf Blade variants. Filter by grade and by close
+combat, missile, blackpowder, armour, miscellaneous equipment, or animal bestiary.
+Prices and rarity retain faction/type exceptions, and each entry links to its
+source rules. Buying places equipment in the
 stash and deducts the exact recorded cost. A brace is one item containing two
 pistols. Recruitment-list prices remain unchanged during initial roster setup;
-later campaign equipment must be bought through the shop.
+later campaign equipment and Freebuild equipment after the first battle must
+be bought through the shop.
 
-- **Freebuild:** buy available shop items without rarity searches. Roll variable
+- **Freebuild:** edit **Battles fought** in Warband Information; counts persist
+  and appear in print/PDF exports. At **0**, only warrior-specific recruitment
+  shops are open, with full-cost refunds for paid creation equipment.
+  At **1 or more**, those shops close, including for new recruits: buy available
+  Mordheim shop items into the stash without rarity searches, then transfer
+  them to eligible warriors. Roll variable
   prices in the app or enter physical D6 results.
   Alternatively, **Add as combat spoils** adds the selected item and quantity
   to the stash at zero cost, without price rolls or rarity searches. Normal
   item availability and warrior equipment restrictions still apply.
+  Rituals and permanent weapon upgrades must use their special paid actions,
+  not combat spoils. Creation-only items remain locked after the first battle.
   Manual combat spoils are unavailable in campaigns; scenario and administrator
   reward awards are planned for a later update.
 - **Campaigns:** search at post-battle step 6; purchase at steps 6–8. Each Hero
@@ -181,6 +194,16 @@ later campaign equipment must be bought through the shop.
   action cannot search. A 2D6 total meeting the item's rarity permits one copy;
   Streetwise adds +2. Search results and price quotes persist across reloads,
   and requesting a quote again does not reroll an unpaid offer.
+- **Selling:** after the first Freebuild battle, or at campaign purchasing
+  steps 6–8, sell stash quantities or carried equipment. Each copy pays half
+  its listed Mordheim shop **base cost**, rounded down to whole GC; variable
+  price dice and amounts paid are ignored. This includes ordinary combat
+  spoils. Campaign price overrides/custom prices apply; items not listed in
+  the Mordheim shop use their warband-list price. Free starter equipment,
+  bound Familiars and permanently poisoned weapons cannot be sold.
+  Shared Henchman gear must be sold from every model together; sell or return
+  barding before selling its mount. Sales remain possible when buying is
+  unaffordable and update treasury and inventory atomically.
 - Mark Heroes **out of action** during battle or injuries. Availability resets
   with the next battle's record, not by reloading the page.
 - Transfer gear between stash and members in Freebuild, initial setup,
@@ -189,6 +212,24 @@ later campaign equipment must be bought through the shop.
   from a dead warrior.
 - Fixed-price shop items display their price and can be bought directly;
   only variable-price items show price-roll controls.
+  Skink Heroes can be selected as the buyer for their Common, fixed-price
+  Black Lotus and Dark Venom exceptions. Campaign price overrides take
+  precedence, and variable prices support up to ten D6.
+- **Special purchases:** Dark Elf Blades are new swords or daggers with the
+  upgrade included in the price. A Familiar summoning attempt charges its
+  quoted cost even if the rarity roll fails, uses that Hero's campaign search,
+  and excludes Prayer users. A summoned Familiar is bound to its caster,
+  including while stashed, and is lost if that caster dies.
+  Poisoned Weapon permanently upgrades a carried weapon; identical-gear
+  Henchmen upgrade one matching weapon per model and pay for every copy.
+  Such weapons cannot be traded, sold or returned to stash.
+  The Standard of Nagarythe is available only before the first battle and,
+  in campaigns, during initial setup.
+- Swivel Guns are limited to one per warband, including recruitment-origin
+  gear. Peg Legs and Bota Bags are limited to one per model. Barding requires
+  the recipient's carried warhorse; return barding before returning the mount.
+  Giant Spiders and Giant Wolves cannot coexist in a warband, and species
+  and skill restrictions still apply to their riders.
 - Each stash item has a recipient selector containing only eligible warriors.
   Choose a recipient and quantity there; Henchman quantities are per model
   unless their equipment rules permit selecting an individual model.
@@ -215,18 +256,39 @@ Halfling Cookbook capacity bonus is automated. Existing Tome of Magic
 consumption works with tomes bought from the shop and assigned to an eligible
 Hero. Shop gear cannot use the old full-cost recruitment refund action.
 Voluntarily reducing a Henchman group's size returns the removed models'
-shop gear to the stash rather than refunding its purchase price.
+shop gear to the stash rather than refunding its purchase price. After
+creation, removed models' recruitment-list gear also returns to the stash
+without a full-cost equipment refund.
+Permanently poisoned weapons are lost instead; bound-item metadata is
+preserved during inventory transfers and promotions.
+Animal entries are inventory, not automatically recruited/fielded models.
+Entries for unsupported warbands remain listed but unavailable rather than
+silently granting faction-specific equipment to other warbands.
 Haggle discounts are not yet automated, and the generic Mercenaries roster
 does not distinguish Marienburg for its rare-item search bonus.
+For the same reason, faction-specific Rapier and Middenheim Wolfcloak
+eligibility is not inferred from a generic Mercenaries roster.
 
 ### Trading API
 
 - `GET /api/shop`: base shop catalog for campaign customization.
 - `GET /api/rosters/:rosterId/trading`: stash, carried gear, shop, Hero status,
   current-battle searches and action permissions.
-- `POST .../trading/search`: `{heroId, itemId, mode, dice?}`.
-- `POST .../trading/quote`: `{itemId, mode, dice?}` returns a persisted quote.
+- `POST .../trading/search`: `{heroId, itemId, mode, dice?, quoteId?}`.
+  Familiar summoning requires the caster's `quoteId`; the response includes
+  the paid attempt result, including unsuccessful attempts.
+- `POST .../trading/quote`: `{itemId, mode, dice?, buyerId?}` returns a persisted
+  quote scoped to that buyer (required for Familiar rituals).
 - `POST .../trading/purchase`: `{quoteId, quantity, searchId?}`.
+- `POST .../trading/spoils`: `{itemId, quantity?}`, Freebuild only.
+- `POST .../trading/sell`: `{source: "stash", inventoryIds: [id], quantity}`
+  sells copies from one stash stack; `{source: "member", inventoryIds: [id, ...]}`
+  sells complete carried rows. Returns refreshed trading data and `saleAmount`.
+- `POST /api/rosters` and `PATCH /api/rosters/:rosterId` accept
+  `battlesFought` (0–2147483647) for Freebuild only. Campaign counts are managed
+  by the battle sequence. Quotes from an earlier battle count expire.
+- `POST .../trading/upgrade`: `{itemId, inventoryId, quoteId}` permanently
+  upgrades a carried weapon, charging every model of an identical-gear group.
 - `POST .../trading/transfer`: `{direction, inventoryId, memberId, quantity,
   modelIndex}`. Direction is `to_member` or `to_stash`; model index `-1`
   equips all models with `quantity` copies each.
