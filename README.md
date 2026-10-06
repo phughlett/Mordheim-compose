@@ -56,15 +56,75 @@ standalone Mordheim development stack.
 
 The backend migrations create roster tables plus `warbands`, `warrior_types`, and `warband_warrior_types` lookup tables. Warrior types also record promotion eligibility as `eligible`, `ineligible`, `unverified`, or `not_applicable`. The workbook's Hero dropdown whitelist is used for Henchmen; explicit rulebook exclusions override it. Only eligible Henchmen get a promotion action, and the API enforces the same rule. Set `VITE_API_BASE_URL` in `.env` if the API is exposed at a different URL; this value is baked into the frontend image at build time.
 
+## Source-backed warband catalog
+
+The catalog covers all **36 Core, Grade 1A and Grade 1B entries** listed by
+[The New Mordheimer](https://mordheimer.net/docs/warbands): six Core, seven
+additional 1A, and 23 1B. Core is the application's label for the six original
+rulebook warbands, which the source site files under 1A.
+The existing Night Goblins, Marauders of Chaos and Battle Monks of Cathay
+remain available and are explicitly labelled **1C**; they are not removed
+by the grade expansion.
+
+The 15 additions are Amazons (Lustria), Arabian Tomb Raiders, Black Orcs,
+Dwarf Rangers, Forest Goblins, Gunnery School of Nuln, Hochland Bandits,
+Horned Hunters, Imperial Outriders, Mootlanders, Ostermarkers, Outlaws of
+Stirwood Forest, Skaven of Clan Pestilens, Tileans and Tomb Guardians.
+The existing Amazons entry is displayed as **Amazons (Mordheim)** without
+renaming its canonical database identity. New rosters select **Reikland Mercenaries**,
+**Middenheim Mercenaries** or **Marienburg Mercenaries** separately. Existing generic
+Mercenaries rosters remain playable legacy rosters without reassignment.
+Reikland Marksmen start at BS 4; Middenheim Captains and Champions start at S 4.
+Each province has its own source-backed Hero skill table (including the differing
+Champion and Youngblood Shooting, Strength and Speed permissions).
+Only Middenheim offers the recruitment Wolfcloak. Marienburg's starting-gold
+bonus and rare-search bonus remain reference rules: choose the appropriate starting
+gold in Freebuild and have the campaign administrator apply campaign adjustments.
+The Ostlanders and Orc entries display **Osterlander Mercenaries** and **Orc Mob**
+throughout the UI and printed rosters while retaining their canonical rule identities.
+
+The source manifest, factual additions and existing-warband audit are in
+[`backend/warband-source/`](backend/warband-source/). They supplement the
+original PDF-backed catalog, not replace or erase its historical records.
+The catalog migration updates existing databases, preserves equipment IDs
+and owned inventory, and never resets a recruited warrior's stats or treasury.
+Where an old warrior type was shared between factions, corrected data is
+scoped to that faction rather than changing another faction's profile.
+Take a database backup before deploying; rollback requires restoring that backup.
+
+Warband creation shows grades and source links. Expand **Warband rules** in
+the information section or **Special rules** in member details to read concise
+reference summaries; they are also included in PDF exports. The API exposes
+`grade`, `displayName`, `sourceUrl` and `specialRules` on warbands,
+`specialRules` on warrior types/members, and source metadata on roster capacity.
+Profiles, hiring costs and caps, equipment permissions, skill lists and spell
+access use the existing catalog mechanics. New automation for combat effects,
+tribe/province choices, special upkeep, scenario effects and exceptional model
+counting is **not** included. These effects require manual adjudication using
+the linked full source.
+Unresolved Hired Sword eligibility is not converted into blanket permission.
+Where the source does not establish a starting spell count or a special
+equipment profile, the catalog records that uncertainty rather than inventing
+values. Variable-price, trade-only gear is not offered as a base-price-only
+recruitment purchase. Included zero-price starting mounts are granted once,
+not offered as repeatable free purchases.
+
+The audit also restores the missing Averlander Sergeant and Orc Troll,
+corrects Dragon Monk/Chaos Warhound/Spawn profiles, Marauder costs and profiles,
+Night Goblin Squig movement, and source equipment restrictions and prices.
+
 Warband limits are stored per warband: 6 Heroes by default, with base model
-maximums audited against the local warband PDFs in
-[`backend/warband-capacity.json`](backend/warband-capacity.json):
+maximums sourced from the original local-PDF audit in
+[`backend/warband-capacity.json`](backend/warband-capacity.json) and the later
+online-source corrections/additions in
+[`backend/warband-source/`](backend/warband-source/).
+The original 24-warband capacity baseline is:
 
 | Base maximum | Warbands |
 | --- | --- |
 | 12 | Bretonnian, Dark Elves, Dwarf Treasure Hunters, Shadow Warrior, Witch Hunters |
-| 20 | Lizardmen, Night Goblins, Orc, Skaven |
-| 15 | Amazons, Averlander Mercenaries, Beastmen Raiders, Carnival of Chaos, Cult of the Possessed, Kislevite, Mercenaries, Norse, Ostlanders, Pirate, Pit Fighter, Sisters of Sigmar, Undead, Marauders of Chaos, Battle Monks of Cathay |
+| 20 | Lizardmen, Night Goblins, Orc Mob, Skaven |
+| 15 | Amazons, Averlander Mercenaries, Beastmen Raiders, Carnival of Chaos, Cult of the Possessed, Kislevite, Reikland Mercenaries, Middenheim Mercenaries, Marienburg Mercenaries, legacy Mercenaries, Norse, Osterlander Mercenaries, Pirate, Pit Fighter, Sisters of Sigmar, Undead, Marauders of Chaos, Battle Monks of Cathay |
 
 The Marauders reference gives Hung tribes a base limit of 12 rather than 15;
 tribe selection is not currently supported, so the catalog uses the general
@@ -108,7 +168,7 @@ charges the model's hire fee and checks available GC, capacity, and type limits.
 its individual inventory. Campaign hiring/removal permissions apply; the last
 model is removed using the roster's Remove action.
 
-Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`. Items marked first-free are added to inventory automatically for existing warriors and at recruitment, one per Henchman model; additional copies are charged. Creation refunds return recorded purchase cost; later sales pay half the listed base price. Free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
+Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`, supplemented by `backend/warband-source/`. Items marked first-free are added to inventory automatically at recruitment, one per Henchman model; additional copies are charged. Earlier migrations granted starter gear to existing warriors, but source-audit corrections do not silently award gear to existing rosters. Creation refunds return recorded purchase cost; later sales pay half the listed base price. Free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
 
 Pistols, duelling pistols, and warplock pistols can be bought singly or as a
 named **Brace** option wherever the single pistol is permitted. A brace costs
@@ -210,6 +270,9 @@ be bought through the shop.
   pre-battle, or post-battle **Reallocate equipment** (step 9). Transfers do not
   charge/refund GC. Battle/injury transfers are blocked to prevent rescuing gear
   from a dead warrior.
+  Dwarf Thunderers and Engineers use the Thunderer list, including its
+  dagger, mace, hammer, axe and sword entries; this does not grant access to
+  the broader Dwarf Warrior list.
 - Fixed-price shop items display their price and can be bought directly;
   only variable-price items show price-roll controls.
   Skink Heroes can be selected as the buyer for their Common, fixed-price
@@ -264,10 +327,10 @@ preserved during inventory transfers and promotions.
 Animal entries are inventory, not automatically recruited/fielded models.
 Entries for unsupported warbands remain listed but unavailable rather than
 silently granting faction-specific equipment to other warbands.
-Haggle discounts are not yet automated, and the generic Mercenaries roster
-does not distinguish Marienburg for its rare-item search bonus.
-For the same reason, faction-specific Rapier and Middenheim Wolfcloak
-eligibility is not inferred from a generic Mercenaries roster.
+Haggle discounts and Marienburg's rare-search bonus are not yet automated.
+The three named Mercenary entries resolve province-specific Trading Post restrictions.
+Faction-specific Rapier and Middenheim Wolfcloak eligibility is not inferred
+from a legacy generic Mercenaries roster.
 
 ### Trading API
 
