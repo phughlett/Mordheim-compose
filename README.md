@@ -189,6 +189,10 @@ later campaign equipment must be bought through the shop.
   unless their equipment rules permit selecting an individual model.
   Warriors return items using **Return to stash** in their character inventory.
   Shared Henchman equipment returns the same quantity from every model.
+- **Assigned equipment** groups matching item names and categories into total
+  quantities (for example, **Dagger x 7 - Weapon**), followed by the names of
+  the carrying warriors or Henchman groups. Model numbers are hidden in this
+  summary; individual-model inventory tracking and transfer controls are unchanged.
 - Recipients must meet weapon/armour list, warband, warrior-type, Hero-only and
   skill restrictions. Weapons Training and Weapons Expert permit their
   respective weapon classes but do not bypass hard restrictions. Identical-gear
