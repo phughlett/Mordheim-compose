@@ -171,6 +171,11 @@ later campaign equipment must be bought through the shop.
 
 - **Freebuild:** buy available shop items without rarity searches. Roll variable
   prices in the app or enter physical D6 results.
+  Alternatively, **Add as combat spoils** adds the selected item and quantity
+  to the stash at zero cost, without price rolls or rarity searches. Normal
+  item availability and warrior equipment restrictions still apply.
+  Manual combat spoils are unavailable in campaigns; scenario and administrator
+  reward awards are planned for a later update.
 - **Campaigns:** search at post-battle step 6; purchase at steps 6–8. Each Hero
   gets one search per battle, whether successful or not. Heroes marked out of
   action cannot search. A 2D6 total meeting the item's rarity permits one copy;
