@@ -292,6 +292,8 @@ Automated tests mock GitHub and create no live issues.
   balances align with the stash title, with the Freebuild save hint beneath.
   A crown and **Leader** badge identify the current leader in the Hero list and
   their details header; the badge follows automatic leadership succession.
+- PDF/print exports include **Total Fielded** (including every Henchman model
+  and Hired Sword) and **Rout Test At**, rounded up to 25% out of action.
 - Freebuild can record mature warriors' experience at any time. Heroes are capped
   at 90 XP and Henchmen at 14 XP in both Freebuild and campaigns, in the table,
   details panel, and API. Experience
