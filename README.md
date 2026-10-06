@@ -42,7 +42,7 @@ standalone Mordheim development stack.
 - `GET /api/warbands/:warbandId/warrior-types?category=Hero` lists selectable Hero types, including any `maxCount` and dependent type limits; the `category` parameter also accepts `Henchman` and `Hired Sword`. Add `&includeUnavailable=true` to review prohibited and unverified combinations with their rule source.
 - `GET /api/rosters` and `POST /api/rosters`
 - `GET`, `PATCH`, and `DELETE /api/rosters/:rosterId`
-- `PUT /api/rosters/:rosterId/capacity-modifiers` assigns the roster's capacity items using `{ "modifierIds": [...] }`.
+- `PUT /api/rosters/:rosterId/capacity-modifiers` is retired and returns 409; capacity item bonuses are derived from the leader's inventory.
 - `POST /api/rosters/:rosterId/members`
 - `PATCH` and `DELETE /api/members/:memberId`
 - `POST /api/members/:memberId/promote` promotes a Henchman only when its type is marked eligible for Lad's Got Talent.
@@ -69,11 +69,30 @@ maximums audited against the local warband PDFs in
 The Marauders reference gives Hung tribes a base limit of 12 rather than 15;
 tribe selection is not currently supported, so the catalog uses the general
 Marauders limit. Referenced encampment increases are not automatically applied.
-Halfling Scouts and an assigned Halfling Cookbook each add one warrior slot;
-the Cookbook is unavailable to Undead and Carnival of Chaos. Hired Swords do
+Halfling Scouts add one warrior slot. A Halfling Cookbook adds one slot only
+while the current leader carries it in their inventory; stash copies, copies
+on other warriors, and multiple cookbooks do not grant extra slots.
+The Cookbook is unavailable to Undead and Carnival of Chaos. Hired Swords do
 not count toward the model cap. The API enforces Hero and total-member limits
 on recruitment, group resizing, and promotion. The audit migration updates
 existing warbands without deleting warriors from rosters above a corrected cap.
+
+The standard leader type leads whenever present (for example, Mercenary
+Captain). Otherwise the Hero with the highest current Leadership leads; ties
+use recruitment time, then warrior ID, not roster display order. Only Heroes
+can lead. The current leader automatically displays the **Leader** ability in
+their skills and printed roster: nearby members within 6 inches may use the
+leader's Leadership for Leadership tests. It costs no XP or gold and cannot be
+forgotten or purchased; it disappears when another Hero becomes leader.
+Leadership and cookbook capacity are recalculated after recruitment, changes
+to Leadership, transfers, and deaths. Losing the bonus does not delete existing
+warriors or block returning the item; an over-capacity warning is shown and
+further recruitment remains blocked until the roster fits its current limit.
+Old manually selected cookbook bonuses no longer apply.
+If the leader dies carrying the cookbook, it is lost with their other carried
+items. The successor receives the Leader ability, not the dead leader's
+equipment; a replacement cookbook must be purchased and assigned to the new
+leader to restore the slot.
 
 Per-type caps are stored on each warband/type association. The sourced rules include fixed limits and dependent limits such as Cave Squigs per Night Goblin and Pirate Swabbies per Crew member. Recruitment and type changes enforce these limits in the API as well as disabling full types in the frontend.
 
@@ -90,6 +109,19 @@ its individual inventory. Campaign hiring/removal permissions apply; the last
 model is removed using the roster's Remove action.
 
 Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`. Items marked first-free are added to inventory automatically for existing warriors and at recruitment, one per Henchman model; additional copies are charged. Paid equipment sales refund the recorded purchase cost, while free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
+
+Pistols, duelling pistols, and warplock pistols can be bought singly or as a
+named **Brace** option wherever the single pistol is permitted. A brace costs
+twice the list's single-pistol price and is recorded as one inventory unit
+containing two pistols, counting as one missile weapon toward the two-weapon
+carrying limit. The existing quantity field counts singles or braces according
+to the selected item; buying two singles does not automatically convert them.
+
+**Export PDF / Print** includes a writable experience track for each warrior
+that can gain XP: 90 boxes for Heroes and 14 for Henchmen/Hired Swords.
+Current XP is marked with an X; double-bordered boxes indicate advancement
+thresholds. Henchman tracks record shared XP per model, not group-total XP.
+The boxes use visible borders and text, so background printing is not required.
 
 Cult of the Possessed mutations are tracked as special equipment in warrior
 inventory. Campaign Mutants must choose at least one mutation at recruitment;
@@ -110,7 +142,11 @@ per characteristic; blank caps mean unlimited purchases within racial stat
 limits and the 90 XP Hero track. Defaults are M/WS/BS/Ld 15 GC, I 10 GC,
 S/A 25 then 35 GC, T 30 then 45 GC, W 20 then 30 GC, and skills 40 GC.
 Each purchased stat allows one purchased skill from the Hero's normal skill
-lists. Both stat and skill purchases raise experience to the next Hero
+lists when **Allow skill purchases** is checked. Uncheck that option during
+campaign creation to allow only purchased characteristics. The API stores
+this as `advancePurchaseRules.skillsEnabled` and rejects skill purchases when
+false; older campaigns without the setting retain their previous behavior.
+Earned skill advances are unaffected. Both stat and skill purchases raise experience to the next Hero
 advancement threshold and create an already-resolved advancement, so no extra
 advance is awarded for the purchased XP. Paid costs and prior XP are recorded.
 During initial creation, undoing the latest purchase (or forgetting its skill)
@@ -119,6 +155,79 @@ undone first; refunds are blocked after subsequent XP gains or roster creation.
 Existing campaigns keep purchases disabled.
 
 Warrior-type lookups include `maxCount`, `maxCountReferenceTypes`, and `maxCountMultiplier`. A null `maxCount` with no reference types means no per-type cap was defined in the catalog; fixed and dependent caps are enforced by both the API and roster selectors.
+
+## Warband stash and trading
+
+Each warband has a separate **Warband Stash**. Gear in the stash is safe when
+a warrior dies; carried gear is lost. Use **Record death** during post-battle
+injuries rather than removing a hire: deaths never refund hire fees or equipment.
+For Henchmen, choose the dead model; only that model and its gear are removed.
+
+The **Trading shop** uses the local `3Campaigns.pdf` Price chart, with Common
+items, rare items, and base-plus-dice prices. Buying places equipment in the
+stash and deducts the exact recorded cost. A brace is one item containing two
+pistols. Recruitment-list prices remain unchanged during initial roster setup;
+later campaign equipment must be bought through the shop.
+
+- **Freebuild:** buy available shop items without rarity searches. Roll variable
+  prices in the app or enter physical D6 results.
+- **Campaigns:** search at post-battle step 6; purchase at steps 6–8. Each Hero
+  gets one search per battle, whether successful or not. Heroes marked out of
+  action cannot search. A 2D6 total meeting the item's rarity permits one copy;
+  Streetwise adds +2. Search results and price quotes persist across reloads,
+  and requesting a quote again does not reroll an unpaid offer.
+- Mark Heroes **out of action** during battle or injuries. Availability resets
+  with the next battle's record, not by reloading the page.
+- Transfer gear between stash and members in Freebuild, initial setup,
+  pre-battle, or post-battle **Reallocate equipment** (step 9). Transfers do not
+  charge/refund GC. Battle/injury transfers are blocked to prevent rescuing gear
+  from a dead warrior.
+- Fixed-price shop items display their price and can be bought directly;
+  only variable-price items show price-roll controls.
+- Each stash item has a recipient selector containing only eligible warriors.
+  Choose a recipient and quantity there; Henchman quantities are per model
+  unless their equipment rules permit selecting an individual model.
+  Warriors return items using **Return to stash** in their character inventory.
+  Shared Henchman equipment returns the same quantity from every model.
+- Recipients must meet weapon/armour list, warband, warrior-type, Hero-only and
+  skill restrictions. Weapons Training and Weapons Expert permit their
+  respective weapon classes but do not bypass hard restrictions. Identical-gear
+  Henchmen take one copy per model; individual gear requires an explicit list
+  permission. A transferred free starter item is not regenerated.
+- Campaign creation supports item disables, fixed or variable price overrides,
+  rarity overrides, and custom items. Custom items require a name, description,
+  cost and rarity (Common or a target), with optional category, allowed/excluded
+  warbands/types, Hero-only and required-skill restrictions. They belong only to
+  that campaign; existing campaigns use the default shop.
+
+Miscellaneous effects are shown for players to apply; this feature does not
+automatically resolve all item effects or injuries. The leader-carried
+Halfling Cookbook capacity bonus is automated. Existing Tome of Magic
+consumption works with tomes bought from the shop and assigned to an eligible
+Hero. Shop gear cannot use the old full-cost recruitment refund action.
+Voluntarily reducing a Henchman group's size returns the removed models'
+shop gear to the stash rather than refunding its purchase price.
+Haggle discounts are not yet automated, and the generic Mercenaries roster
+does not distinguish Marienburg for its rare-item search bonus.
+
+### Trading API
+
+- `GET /api/shop`: base shop catalog for campaign customization.
+- `GET /api/rosters/:rosterId/trading`: stash, carried gear, shop, Hero status,
+  current-battle searches and action permissions.
+- `POST .../trading/search`: `{heroId, itemId, mode, dice?}`.
+- `POST .../trading/quote`: `{itemId, mode, dice?}` returns a persisted quote.
+- `POST .../trading/purchase`: `{quoteId, quantity, searchId?}`.
+- `POST .../trading/transfer`: `{direction, inventoryId, memberId, quantity,
+  modelIndex}`. Direction is `to_member` or `to_stash`; model index `-1`
+  equips all models with `quantity` copies each.
+- `POST .../trading/hero-status`: `{heroId, outOfAction}`.
+- `POST /api/rosters/:rosterId/casualties`: `{memberId, modelIndex}`.
+- `POST /api/campaigns` accepts `tradingRules: {overrides, customItems}`.
+
+Dice mode is `simulated` or `manual`; manual input must have exactly the
+required number of integers from 1 to 6. Treasury changes, stock
+movement, quote consumption and rare-offer consumption remain transactional.
 
 ## Correction submissions
 
@@ -166,13 +275,19 @@ Automated tests mock GitHub and create no live issues.
 ## Sharing and testing
 
 - **Freebuild**: choose "Freebuild (no campaign)" in the campaign menu to build warbands outside any campaign (you enter the starting Gold Crowns when creating; default 500). Gold Crowns and Wyrdstone are editable, saved balances; Wyrdstone starts at zero. Both are included in print/PDF exports. Warbands can be shared by code like any other warband.
-- **Campaign currency**: Gold Crowns and Wyrdstone are read-only in the overview
+- **Campaign currency**: Gold Crowns and Wyrdstone are tracked in the Warband Stash
+  header (editable in Freebuild, read-only in Campaign mode)
   and cannot be edited directly through the API. Starting Gold Crowns still come
   from the campaign's limit, and hiring, purchases, and equipment sales continue
   to adjust gold normally. Wyrdstone sales and campaign earnings tracking are
   planned, not implemented yet.
 - Editable Freebuild currency balances have bordered input boxes and an
   automatic-save hint; these editing cues are not shown on read-only warbands.
+- The editable warband name uses a larger title font beside the limits and roster
+  statistics in the warband information row, stacking on narrow screens. Stash currency
+  balances align with the stash title, with the Freebuild save hint beneath.
+  A crown and **Leader** badge identify the current leader in the Hero list and
+  their details header; the badge follows automatic leadership succession.
 - Freebuild can record mature warriors' experience at any time. Heroes are capped
   at 90 XP and Henchmen at 14 XP in both Freebuild and campaigns, in the table,
   details panel, and API. Experience
