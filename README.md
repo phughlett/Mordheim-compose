@@ -293,6 +293,16 @@ be bought through the shop.
   the recipient's carried warhorse; return barding before returning the mount.
   Giant Spiders and Giant Wolves cannot coexist in a warband, and species
   and skill restrictions still apply to their riders.
+- **Mordheim maps:** choose Fake, Vague, Catacomb, Accurate or Master manually,
+  enter one D6 per copy, or simulate the rolls. The map-type roll is separate
+  from rarity and price: 1 Fake, 2–3 Vague, 4 Catacomb, 5 Accurate, 6 Master.
+  Purchases and Freebuild spoils record each copy's type, selection mode and
+  rolled value. Types survive transfers and appear in carried inventory and
+  print exports. Existing unresolved maps can be recorded one copy at a time
+  from the stash or Assigned equipment during purchasing/reallocation.
+  Recorded types cannot be rerolled. The rules summaries explain scenario and
+  exploration effects (including the Master map's bearer condition); players
+  apply these effects at the tabletop, not automatically.
 - Each stash item has a recipient selector containing only eligible warriors.
   Choose a recipient and quantity there; Henchman quantities are per model
   unless their equipment rules permit selecting an individual model.
@@ -342,8 +352,13 @@ from a legacy generic Mercenaries roster.
   the paid attempt result, including unsuccessful attempts.
 - `POST .../trading/quote`: `{itemId, mode, dice?, buyerId?}` returns a persisted
   quote scoped to that buyer (required for Familiar rituals).
-- `POST .../trading/purchase`: `{quoteId, quantity, searchId?}`.
-- `POST .../trading/spoils`: `{itemId, quantity?}`, Freebuild only.
+- `POST .../trading/purchase`: `{quoteId, quantity, searchId?, mapSelection?}`.
+- `POST .../trading/spoils`: `{itemId, quantity?, mapSelection?}`, Freebuild only.
+  Mordheim maps require `mapSelection`: `{mode: "choose", type}` (type is
+  `fake`, `vague`, `catacomb`, `accurate` or `master`), `{mode: "manual", dice}`
+  (one D6 per copy), or `{mode: "simulated"}`.
+- `POST .../trading/map`: `{source: "stash" | "member", inventoryId, mapSelection}`
+  records one previously unresolved Mordheim map without changing its cost.
 - `POST .../trading/sell`: `{source: "stash", inventoryIds: [id], quantity}`
   sells copies from one stash stack; `{source: "member", inventoryIds: [id, ...]}`
   sells complete carried rows. Returns refreshed trading data and `saleAmount`.
