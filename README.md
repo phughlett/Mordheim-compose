@@ -170,6 +170,23 @@ model is removed using the roster's Remove action.
 
 Equipment options and warrior-specific list permissions are source-backed in `backend/equipment-catalog.json`, supplemented by `backend/warband-source/`. Items marked first-free are added to inventory automatically at recruitment, one per Henchman model; additional copies are charged. Earlier migrations granted starter gear to existing warriors, but source-audit corrections do not silently award gear to existing rosters. Creation refunds return recorded purchase cost; later sales pay half the listed base price. Free starter gear cannot be sold. Purchases and sales update the roster treasury transactionally, and group purchases charge per model. Henchman groups share equipment unless their fact sheet explicitly permits individual gear. Existing freeform equipment notes remain available for non-purchasable or campaign-record details.
 
+Hero status does not automatically grant the Hero equipment list: Skaven Night
+Runners use the Henchmen list, including its shields and clubs. Norse Hunters use
+bows/javelins, while Marauders use throwing axes and light armour; Jarls may wear
+Hero-list armour, but Berserkers may not. Orc Shamans and Kislevite Esaul/Youths
+recruit with weapons only. Fellblades cannot use missiles, and Priests of Taal
+cannot wear heavy armour. Possessed receive no free dagger or ordinary weapons/
+armour; shields require the Extra Arm mutation. Condemned cannot receive equipment
+until WS, S, T and A are all fixed positive characteristics rather than dice
+expressions. These conditional restrictions apply to recruitment, free starter
+gear and trading transfers; existing inventory and purchase records are preserved.
+The equipment-access regression fixture covers all 275 available/conditional
+Hero/Henchman associations across 42 warbands (including legacy Mercenaries).
+It records source fighter/list mappings and explicit interpretations for split
+lists, supplements and companion/cart profiles. API tests also cover restricted
+categories, conditional access, rejected purchases/transfers and migrations from
+both corrected and legacy equipment assignments.
+
 Pistols, duelling pistols, and warplock pistols can be bought singly or as a
 named **Brace** option wherever the single pistol is permitted. A brace costs
 twice the list's single-pistol price and is recorded as one inventory unit
@@ -223,7 +240,7 @@ a warrior dies; carried gear is lost. Use **Record death** during post-battle
 injuries rather than removing a hire: deaths never refund hire fees or equipment.
 For Henchmen, choose the dead model; only that model and its gear are removed.
 
-The **Trading shop** includes every **Core, 1a and 1b** row from the
+The **Trading Post** includes every **Core, 1a and 1b** row from the
 [New Mordheimer Trading Post](https://mordheimer.net/docs/trading-post):
 178 source rows represented by 203 purchasable entries, including brace,
 weapon-material and Dark Elf Blade variants. Filter by grade and by close
@@ -239,7 +256,7 @@ be bought through the shop.
   and appear in print/PDF exports. At **0**, only warrior-specific recruitment
   shops are open, with full-cost refunds for paid creation equipment.
   At **1 or more**, those shops close, including for new recruits: buy available
-  Mordheim shop items into the stash without rarity searches, then transfer
+  Trading Post items into the stash without rarity searches, then transfer
   them to eligible warriors. Roll variable
   prices in the app or enter physical D6 results.
   Alternatively, **Add as combat spoils** adds the selected item and quantity
@@ -256,10 +273,10 @@ be bought through the shop.
   and requesting a quote again does not reroll an unpaid offer.
 - **Selling:** after the first Freebuild battle, or at campaign purchasing
   steps 6–8, sell stash quantities or carried equipment. Each copy pays half
-  its listed Mordheim shop **base cost**, rounded down to whole GC; variable
+  its listed Trading Post **base cost**, rounded down to whole GC; variable
   price dice and amounts paid are ignored. This includes ordinary combat
   spoils. Campaign price overrides/custom prices apply; items not listed in
-  the Mordheim shop use their warband-list price. Free starter equipment,
+  the Trading Post use their warband-list price. Free starter equipment,
   bound Familiars and permanently poisoned weapons cannot be sold.
   Shared Henchman gear must be sold from every model together; sell or return
   barding before selling its mount. Sales remain possible when buying is
@@ -325,9 +342,14 @@ be bought through the shop.
 
 Miscellaneous effects are shown for players to apply; this feature does not
 automatically resolve all item effects or injuries. The leader-carried
-Halfling Cookbook capacity bonus is automated. Existing Tome of Magic
-consumption works with tomes bought from the shop and assigned to an eligible
-Hero. Shop gear cannot use the old full-cost recruitment refund action.
+Halfling Cookbook capacity bonus is automated. To learn Lesser Magic, a Hero
+with Arcane Lore must carry a Tome of Magic acquired through the Trading Post
+and transferred from Warband stash. Learning consumes exactly one carried Tome
+and unlocks Lesser Magic atomically; tomes in the stash or another warrior's
+inventory do not qualify. The inventory and Trading Post refresh after learning.
+The manual "Record acquired Tome" shortcut is removed, including before the
+first Freebuild battle; its old API returns an explicit Trading Post instruction.
+Existing carried tomes remain usable. Shop gear cannot use the old full-cost recruitment refund action.
 Voluntarily reducing a Henchman group's size returns the removed models'
 shop gear to the stash rather than refunding its purchase price. After
 creation, removed models' recruitment-list gear also returns to the stash
