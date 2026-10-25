@@ -323,8 +323,25 @@ be bought through the shop.
 - Each stash item has a recipient selector containing only eligible warriors.
   Choose a recipient and quantity there; Henchman quantities are per model
   unless their equipment rules permit selecting an individual model.
+  After adding recruits to an existing group, choose **Complete group
+  equipment** to transfer only the missing copies of that item. For example,
+  a fourth Thunderer joining three with crossbows needs just one crossbow
+  from the stash, not four more. Ordinary **Send to member** still adds the
+  selected quantity to every model.
   Warriors return items using **Return to stash** in their character inventory.
   Shared Henchman equipment returns the same quantity from every model.
+- Select a Henchman group to inspect its **Group equipment check**: each item
+  shows total copies, quantities per model, and missing copies. Unequipped
+  recruits flag the group as **Incorrectly equipped** in the roster. Campaign
+  battles cannot start until every identical-gear group matches; the API also
+  enforces this check. Groups with explicit individual-equipment permission
+  may carry different loadouts.
+- `POST /api/rosters/:rosterId/trading/transfer` accepts `fillMissing: true`
+  with `direction: "to_member"` and `modelIndex: -1` to complete a shared
+  group's existing item loadout. It fills each model up to the highest count
+  already carried in that group, ignores the ordinary per-model quantity,
+  and rejects insufficient stash stock atomically. Recruitment and shop
+  copies of the same item count together regardless of purchase price.
 - **Assigned equipment** groups matching item names and categories into total
   quantities (for example, **Dagger x 7 - Weapon**), followed by the names of
   the carrying warriors or Henchman groups. Model numbers are hidden in this
