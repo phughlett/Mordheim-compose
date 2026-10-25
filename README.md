@@ -330,12 +330,19 @@ be bought through the shop.
   selected quantity to every model.
   Warriors return items using **Return to stash** in their character inventory.
   Shared Henchman equipment returns the same quantity from every model.
-- Select a Henchman group to inspect its **Group equipment check**: each item
-  shows total copies, quantities per model, and missing copies. Unequipped
+- Select a Henchman group to inspect its **Group equipment check**: it shows
+  the group size, total copies of each item, and any missing copies. Unequipped
   recruits flag the group as **Incorrectly equipped** in the roster. Campaign
   battles cannot start until every identical-gear group matches; the API also
   enforces this check. Groups with explicit individual-equipment permission
   may carry different loadouts.
+- Matching recruitment and Trading Post items appear in one owned inventory
+  stack and one printed stack, regardless of their purchase prices. Shared
+  group returns and sales operate on matching copies across both sources;
+  recorded costs and sale restrictions remain attached to the original items.
+  After roster creation, resale uses half the current Trading Post base price,
+  rounded down per copy (including campaign price overrides), not the amount
+  originally paid.
 - `POST /api/rosters/:rosterId/trading/transfer` accepts `fillMissing: true`
   with `direction: "to_member"` and `modelIndex: -1` to complete a shared
   group's existing item loadout. It fills each model up to the highest count
