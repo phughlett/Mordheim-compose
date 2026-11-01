@@ -92,7 +92,7 @@ stats, XP, equipment, skills, spells, notes, earlier injuries and removal cause.
 Snapshots are read-only and captured before the removal outcome is applied;
 historical equipment cannot be reused or sold. Graveyard Heroes are excluded
 from active membership, capacity, rating and fielding totals. The Graveyard
-is also included in PDF/print exports and shared read-only roster views.
+is included in shared read-only roster views but excluded from PDF/print exports.
 Existing injury records for removed Heroes are shown as incomplete legacy
 entries: data already deleted before this feature cannot be reconstructed.
 The Graveyard is not used during roster creation (zero battles fought).
