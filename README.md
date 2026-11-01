@@ -77,12 +77,44 @@ standalone Mordheim development stack.
 - `GET /api/members/:memberId/equipment` returns the warrior's permitted equipment options and owned inventory.
 - `PUT /api/members/:memberId/mutations` replaces a Freebuild warrior's ordered mutation selections with `{ "mutationIds": ["..."] }`, charging or refunding the repriced difference. Campaign selections are fixed at recruitment.
 - `POST /api/members/:memberId/equipment` buys an item with `{ "equipmentOptionId": "...", "quantity": 1, "modelIndex": -1 }`. A model index of `-1` applies an item to the whole Henchman group; otherwise it targets one model when the source permits individual group gear.
-- `DELETE /api/members/:memberId/equipment` removes inventory rows with `{ "inventoryItemIds": ["..."] }` atomically. During creation it refunds recorded cost; after creation it pays half the listed base price, rounded down per copy. Free starter gear, bound items and permanent poisoned weapons cannot be sold.
-- `DELETE /api/members/:memberId/equipment/:inventoryItemId` applies the same refund/resale rules to one inventory row; shared Henchman gear must be sold together for every model.
+- `DELETE /api/members/:memberId/equipment` removes inventory rows with `{ "inventoryItemIds": ["..."] }` atomically. Current-battle paid purchases refund their actual recorded price, even after assignment or transfer. Older purchases and spoils pay half the listed base price, rounded down per copy. Free starter gear, bound items and permanent poisoned weapons cannot be sold.
+- `DELETE /api/members/:memberId/equipment/:inventoryItemId` applies the same refund/resale rules to one inventory row; ordinary shared Henchman sales must include every model, but current purchases may be cancelled individually.
+
+### Between-battle corrections
+
+Skills, spells, skill-list selections and advancement awards can be revised until
+the actual battle counter changes; starting skills remain innate. **Forget**
+releases the linked skill/spell advance, while removing an award also reverses its
+stat increase. An old unresolved award can receive a newly chosen skill or spell,
+which remains editable until the next battle. Spell difficulty choices can be
+reset with `DELETE /api/members/:memberId/advances/:advanceId/choice`.
+Campaign corrections are permitted at any stage; new purchases and ordinary
+sales still follow their existing stage rules. Dependent changes must be undone
+first, including promotion and magic learned through Arcane Lore. Legacy choices
+without a reliable counter stay fixed.
+
+Paid gear purchases can be cancelled for the full amount paid before the next
+battle, including variable-price quotes and items transferred between warriors
+and stash. `POST /api/rosters/:rosterId/trading/cancel-upgrade` cancels an eligible
+permanent poison upgrade using `{ "inventoryId": "..." }`. A consumed Tome is
+corrected using `DELETE /api/members/:memberId/spells/tomes/:useId`: it removes
+the Tome's gained spells, releases their advances, and refunds a current purchase
+or restores an older consumed item without refunding it.
 
 The backend migrations create roster tables plus `warbands`, `warrior_types`, and `warband_warrior_types` lookup tables. Warrior types also record promotion eligibility as `eligible`, `ineligible`, `unverified`, or `not_applicable`. The workbook's Hero dropdown whitelist is used for Henchmen; explicit rulebook exclusions override it. Only eligible Henchmen get a promotion action, and the API enforces the same rule. Set `VITE_API_BASE_URL` in `.env` if the API is exposed at a different URL; this value is baked into the frontend image at build time.
 
 ## Post-battle injury tracking
+
+Owners can correct newly recorded injuries using **Remove injury**, including
+accidental deaths, retirements and Henchman losses. The actual battle counter at
+application must still match. Correction reverses only the injury's recorded
+changes, preserves unrelated edits, and checks capacity and recruitment rules
+when restoring a warrior/model. Later dependent changes must be undone first;
+spent gold awards or replacement equipment also block reversal.
+`DELETE /api/rosters/:rosterId/injuries/:injuryId` performs this atomically.
+Older records without correction snapshots cannot be safely reversed. The
+action is available in active-warrior details or removed-warrior injury history,
+not in shared read-only views or PDF/print exports.
 
 ### Graveyard
 
@@ -105,8 +137,9 @@ is unchanged and hiring is allowed. The server checks the current warband's
 capacity, Hero limit, type limits and recruitment dependencies atomically.
 Undo removes the Graveyard/removal record and restores the pre-removal state
 (for example, captivity remains pending if it was pending before removal).
-There is no new hire charge or refund. Dead Heroes and older records lacking
-safe undo metadata cannot be restored.
+There is no new hire charge or refund. This action never restores dead Heroes
+or older records lacking safe undo metadata. An accidentally applied death
+injury can instead be reversed using **Remove injury**, as described above.
 
 Select a warrior and use **Add injury** in their details. In Freebuild it appears
 after at least one recorded battle; in campaigns it is available only during
