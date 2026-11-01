@@ -25,7 +25,31 @@ docker compose up --build
 
 Database migrations run when the backend container starts. Compose keeps database files in the `mordheim-pgdata` named volume. To change the local ports or database credentials, copy `.env.example` to `.env` and edit the values.
 
-API requests are logged as JSON lines in the backend container. View them with `docker compose logs -f backend`.
+### Backend interaction logs
+
+View structured JSON request logs with:
+
+```sh
+docker compose logs -f --no-log-prefix backend
+```
+
+Each API request records its `interaction` (for example `skill.learn`,
+`injury.apply`, `trading.purchase` or `campaign.advance_stage`), authenticated
+`userId`, relevant roster/member/campaign/battle IDs, HTTP status, outcome and
+duration. Creation responses also record the new resource ID. Autosaves include
+allowlisted `changedFields` names, not their values. `requestId` matches the
+response's `X-Request-ID` header so a browser request can be located in the logs.
+
+Successful requests use `info`, rejected requests use `warn`, and server errors
+or interrupted connections use `error`. Each request emits one completion or
+abort event; health checks are identifiable as `health.read`. These describe HTTP
+interactions, not a database audit trail.
+
+Passwords, tokens, usernames, request/response bodies, query strings, IP addresses
+and arbitrary unknown URL segments are not logged. Unexpected errors record only
+their type and safe error code, not SQL, raw messages or parameter-bearing stacks.
+Treat logs containing internal account/resource IDs as operational data and
+restrict access and retention accordingly. No new environment settings are needed.
 
 ### Browser verification
 
