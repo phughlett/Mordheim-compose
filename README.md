@@ -41,8 +41,10 @@ allowlisted `changedFields` names, not their values. `requestId` matches the
 response's `X-Request-ID` header so a browser request can be located in the logs.
 
 Successful requests use `info`, rejected requests use `warn`, and server errors
-or interrupted connections use `error`. Each request emits one completion or
-abort event; health checks are identifiable as `health.read`. These describe HTTP
+or interrupted connections use `error`. Successful GET/HEAD health checks (2xx)
+are not logged; failed or interrupted health checks remain logged and GET checks
+are identifiable as `health.read`. Other requests emit one completion or
+abort event. These describe HTTP
 interactions, not a database audit trail.
 
 Passwords, tokens, usernames, request/response bodies, query strings, IP addresses
