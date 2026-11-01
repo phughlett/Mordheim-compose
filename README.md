@@ -27,6 +27,21 @@ Database migrations run when the backend container starts. Compose keeps databas
 
 API requests are logged as JSON lines in the backend container. View them with `docker compose logs -f backend`.
 
+### Browser verification
+
+Use the Docker Compose containers for browser verification, rather than separately
+started local Node or Vite servers. Rebuild the application containers and wait for
+their health checks before testing:
+
+```sh
+docker compose up -d --build --wait backend frontend
+```
+
+Open the frontend at http://localhost:5173 and verify it against the containerized
+API at http://localhost:4000/api. Use a separate temporary account and roster for
+checks that change data, and remove only that test data afterward. Keep the existing
+database volume intact.
+
 ## Production deployment
 
 The shared production stack for Dawnbreaker and Mordheim is maintained separately
@@ -45,6 +60,17 @@ standalone Mordheim development stack.
 - `PUT /api/rosters/:rosterId/capacity-modifiers` is retired and returns 409; capacity item bonuses are derived from the leader's inventory.
 - `POST /api/rosters/:rosterId/members`
 - `PATCH` and `DELETE /api/members/:memberId`
+- `GET /api/members/:memberId/injuries` returns the source-backed injury table,
+  history, conditions, recording permissions and next-battle availability.
+- `POST /api/members/:memberId/injuries/preview` accepts `mode` (`manual` or
+  `simulated`), an individual Henchman's `modelIndex`, and `selection`.
+  Manual selections use `resultId`, with secondary rolls and nested selections
+  where required. It creates a preview without changing the roster.
+- `POST /api/members/:memberId/injuries/:previewId/apply` confirms a preview
+  once; `DELETE` on the preview path cancels it. Previews expire after an hour
+  and cannot apply if the warrior's stats, experience, group or battle changed.
+- `POST /api/members/:memberId/injuries/old-wound` records a simulated or
+  manually entered D6 pre-battle check.
 - `POST /api/members/:memberId/promote` promotes a Henchman only when its type is marked eligible for Lad's Got Talent.
 - `POST /api/members/:memberId/advance-purchases` buys an initial campaign Hero advancement with either `{ "stat": "A" }` or `{ "skillId": "..." }`, using the campaign's configured prices and limits.
 - `DELETE /api/members/:memberId/advances/:advanceId` undoes an eligible advancement; purchased awards refund their recorded price and reverse their purchased XP.
@@ -55,6 +81,107 @@ standalone Mordheim development stack.
 - `DELETE /api/members/:memberId/equipment/:inventoryItemId` applies the same refund/resale rules to one inventory row; shared Henchman gear must be sold together for every model.
 
 The backend migrations create roster tables plus `warbands`, `warrior_types`, and `warband_warrior_types` lookup tables. Warrior types also record promotion eligibility as `eligible`, `ineligible`, `unverified`, or `not_applicable`. The workbook's Hero dropdown whitelist is used for Henchmen; explicit rulebook exclusions override it. Only eligible Henchmen get a promotion action, and the API enforces the same rule. Set `VITE_API_BASE_URL` in `.env` if the API is exposed at a different URL; this value is baked into the frontend image at build time.
+
+## Post-battle injury tracking
+
+### Graveyard
+
+The **Graveyard** preserves all removed Heroes, including deaths, retirement,
+captivity removals and manual dismissals. Expand a Hero to view their archived
+stats, XP, equipment, skills, spells, notes, earlier injuries and removal cause.
+Snapshots are read-only and captured before the removal outcome is applied;
+historical equipment cannot be reused or sold. Graveyard Heroes are excluded
+from active membership, capacity, rating and fielding totals. The Graveyard
+is also included in PDF/print exports and shared read-only roster views.
+Existing injury records for removed Heroes are shown as incomplete legacy
+entries: data already deleted before this feature cannot be reconstructed.
+The Graveyard is not used during roster creation (zero battles fought).
+Dismissal refunds hire fees only during roster creation, never after battles.
+Non-Hero removals remain in injury history, not the Graveyard.
+
+**Undo removal** restores a non-dead Hero and their saved stats, XP, gear,
+skills, spells, mutations and earlier records only while the battle counter
+is unchanged and hiring is allowed. The server checks the current warband's
+capacity, Hero limit, type limits and recruitment dependencies atomically.
+Undo removes the Graveyard/removal record and restores the pre-removal state
+(for example, captivity remains pending if it was pending before removal).
+There is no new hire charge or refund. Dead Heroes and older records lacking
+safe undo metadata cannot be restored.
+
+Select a warrior and use **Add injury** in their details. In Freebuild it appears
+after at least one recorded battle; in campaigns it is available only during
+post-battle step 1, **Injuries**. Record only warriors taken out of action, and
+select the affected model for a Henchman group. There is no automatic walkthrough.
+
+Choose a manual outcome, including required secondary rolls, or use
+**Simulate injury roll** in the injury modal. Both produce a preview.
+**Add injury** and pending **Resolve** actions open this modal; Cancel, Close
+or Escape discard an unapplied preview. **Apply injury** saves only
+outcomes with effects and their injury cause; **Full Recovery** adds no record,
+including within Multiple Injuries. **Cancel** discards the preview without changing the
+warrior, equipment, experience or gold. Confirming death, retirement or a
+Henchman loss removes the affected warrior/model and their inventory without
+refunding their hire fee. Injury history for removed warriors remains available
+in the roster.
+
+Multiple Injuries is used only to select and preview the rolls. Each resulting
+injury is saved as an individual tracker entry with its own effect/cause link;
+existing grouped records are split without applying their effects again.
+
+Hero outcomes include permanent Movement, Toughness, Ballistic Skill, Initiative
+and Weapon Skill penalties, multiple injuries and temporary absences.
+The selected Madness effect is recorded as **Stupidity** or **Frenzy**, not both.
+Current effects appear on warrior rows and in details. The printable roster
+includes gameplay references for psychology and hatred, with their source,
+so Leadership tests, compulsory charges, attack modifiers and other restrictions
+can be applied at the tabletop. Frenzy doubles base Attacks only during combat
+(not the second-hand-weapon bonus), ignores other psychology within charge
+range, and ends for that battle when knocked down or stunned. It does not
+permanently double the roster's Attacks characteristic.
+Stat penalties are already included in roster stats; their records show the
+injury cause and before/after values, so do not subtract them again.
+An already-present psychology or equipment/movement restriction is not recorded
+again unless the new injury adds another effect. Repeated stat wounds still
+apply and retain each change's cause.
+Psychology and equipment/movement restrictions are not unconditional stat
+changes or automatic equipment-list filters. A second lost eye forces retirement.
+Existing injuries are not cleared by a Full Recovery result.
+
+Henchmen resolve one D6 per affected model. Hired Swords use the Henchman table
+under the core Hired Swords injury rule, not the Hero table. The Goblin Lantern
+Bearer's post-battle exception is lost on 1 and survival on 2-6. Combat
+knocked-down/stunned/out-of-action modifiers are distinct from post-battle
+injury rolls and are not applied to these tables.
+
+**Sold to the Pits (65)** may remain pending until its fight is played. Select
+victory to award 50 GC and +2 XP, or defeat to resolve another injury in the
+11-35 range and remove the survivor's carried weapons and armour. Pending pit
+fights and capture make the warrior unavailable for battle. Capture can be
+resolved as ransom, exchange or removal; agree any ransom, captor rewards and
+cross-warband equipment transfers at the tabletop and record those separately.
+Use **Resolve** on a pending entry to preview and confirm its outcome.
+Resolution replaces the pending record with its effects; release without any
+remaining effect removes the pending entry rather than adding a recovery record.
+Pit victory locks the hero's XP minimum at the total reached after the award.
+Later XP gains can still be adjusted, but manual edits or removing an advancement
+cannot undo the pit award. Existing pit awards are protected at their current
+total (or at least starting XP plus injury-awarded XP if previously reduced).
+
+Missed games are counted against recorded battle numbers. Keep Freebuild's
+**Battles fought** accurate so recovery expires correctly. Expired missed-game
+restrictions are omitted from current effects and the printable roster.
+Old Battle Wounds
+require a D6 check before each upcoming battle; record a manual roll or simulate
+it. A 1 excludes that warrior from the next battle. Unavailable warriors are
+excluded from fielded-model/rout summaries, but remain part of the roster's
+capacity and rating. Campaign battle start checks that eligible warriors have
+resolved their old-wound rolls.
+
+The exact user-supplied injury text is maintained in
+`Sourcedata/heroInjuries.json` and `Sourcedata/henchmanInjuries.json`, separately
+from application effect data. Runtime copies are packaged in the backend as
+`hero-injuries.json` and `henchman-injuries.json`; keep them synchronized when
+editing the source tables. The JSON does not grant or change rulebook licenses.
 
 ## Source-backed warband catalog
 
