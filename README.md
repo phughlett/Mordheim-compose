@@ -78,6 +78,102 @@ standalone Mordheim development stack.
 
 ## API
 
+### Commissioner-managed campaigns
+
+Campaign owners are commissioners. **New campaign** and the commissioner desk's
+**Campaign setup** button open a full-width setup page covering starting gold,
+warbands per player, a set number of scenarios or an indefinite campaign, allowed
+warbands, Hero bonuses, Trading Post overrides/custom items, optional rules and
+free-form house-rule text. **Start from the 2026 campaign** fills in that league's
+settings without saving. Changes are prospective: existing gold, equipment and
+custom-item identities are preserved.
+
+Commissioners can **Delete campaign** from the bottom of the setup page. A warning
+explains that deletion is permanent and cannot be undone, and the campaign name
+must be typed to confirm. The schedule, results, standings, campaign battles,
+memberships, invite code and unused custom items are erased. Every warband moves
+to Freebuild for its owner, keeping warriors, gold and equipment (including owned
+custom items); retired league warbands become editable again.
+
+Rules are labelled for every player as **Automated** (enforced by the roster app:
+starting gold, length, allowed warbands, Trading Post changes, paid starting
+advances and the free starting-bonus pool) or **Manual** (played at the table or
+applied by hand). Optional rules such as critical hits by weapon type, blackpowder,
+escaping combat, mounted models, Shadowlord rewards, opulent goods and deserters
+are reference-only; the setup page warns commissioners that some house rules
+need manual roster edits. The free starting bonus gives a warband a shared pool
+of +1 characteristic increases (e.g. 4 × +1 W, at most 1 per Hero). Each claim
+is free, raises the Hero's XP to the next advance and can be undone. Paid
+advances can increase in price per characteristic or after each Hero's first
+purchase.
+
+Invite players, enroll one active warband per player, and schedule scenarios with
+play windows, an IANA display timezone and a location. Assign players to tables
+and explicitly mark absences/byes. Table suggestions favor opponent rotation or
+similar current warband ratings; review the suggestion and attendance before
+saving. The in-app calendar is an agenda of these windows; **Download calendar**
+exports a private, authenticated `.ics` file for importing into a calendar app,
+not a public subscription.
+
+Saving the first schedule enables league play; campaigns without schedules keep the original
+Battle panel. Open scenarios in order, finish roster preparation, roll/agree teams
+at the event, and start each table. Commissioners can adjust attendance until any
+table starts; doing so clears preparing teams and resets absent players to
+pre-battle step 1. Flexible-team scenarios allow uneven teams and individual
+scenarios record independent results. NPC turns and mercenary assistance are
+handled at the tabletop, not simulated.
+
+The commissioner or a player at a table can finalize its results once. Every table
+must have results before the commissioner completes the scenario. Apply normal
+injuries, experience and spoils through the existing post-battle workflow; the
+commissioner can confirm players' completed workflow steps, but confirming a step
+does not grant rewards. Finish post-battle work before opening the next scenario.
+For absences, commissioners can explicitly grant a one-time catch-up gold/XP award
+after scenario completion, before the original warband prepares again or retires.
+This does not count as a battle. XP excludes types that cannot gain experience and
+respects normal caps; actual awards and notes are retained.
+
+Standings belong to players, not warbands. Between scenarios, commissioners can
+retire a warband so its owner can create a replacement under current starting
+rules. Retired rosters are read-only; results retain the original roster snapshot.
+Unfinished scenarios, old results and scheduled warbands cannot be deleted to
+rewrite history.
+
+The scenario library includes nine core-rulebook references and ten structured
+2026 community examples. Commissioners can copy an example into the scenario
+form, edit background, terrain, deployment, special rules/NPCs, victory, experience,
+rewards and after-action instructions, then save/share it. Share codes import
+independent copies; scheduled scenarios retain immutable rule snapshots.
+Original 2026 scenario documents preserve maps and table layout. The 2026 preset
+loads its house-rule text and supported settings into the setup page; it is not
+saved until the commissioner saves, and its other mechanics remain manual. Personal campaign-date/player
+lists are not included. Special items, currencies, penalties and scenario effects
+remain manual unless explicitly supported by the existing roster tools.
+
+Deployment requires rebuilding **both Mordheim backend and frontend**. The backend
+image includes the scenario catalog; its normal migration startup applies the
+additive campaign/round/table and house-rule option schema. No shared reverse-proxy changes are needed.
+Take the usual database backup before upgrading. Existing campaigns are not
+automatically opted in.
+
+League API (authenticated; commissioner-only mutations except table actions):
+
+- `GET /api/scenarios`, `POST /api/scenarios`, `POST /api/scenarios/import`
+- `GET /api/league/templates/2026` (includes a `preset` of 2026 campaign settings)
+- `DELETE /api/campaigns/:campaignId` with `{ "confirmName": "<exact campaign name>" }` permanently deletes a campaign (owner only) and returns `{ deleted, movedWarbandCount }`; its warbands move to Freebuild
+- `GET /api/league/rule-options` lists optional rules and whether each is automated or manual
+- `POST /api/campaigns` and `PATCH /api/campaigns/:campaignId` accept `name`, `maxGc`, `scenarioLimit`, `maxWarbandsPerPlayer`, `allowedWarbandIds`, `advancePurchaseRules` (including `costEscalation`: `characteristic` or `hero`), `tradingRules`, `houseRules` and `houseRuleOptions` (`optionalRules`, `startingBonus: { stats, pool, maxPerHero }`)
+- `GET /api/campaigns/:campaignId/league`
+- `POST /api/campaigns/:campaignId/rounds`, `PATCH`/`DELETE /api/campaigns/:campaignId/rounds/:roundId`
+- `POST /api/campaigns/:campaignId/rounds/:roundId/start`, `/complete`, `/attendance`, `/absence-notes`, `/catch-up`
+- `POST /api/campaigns/:campaignId/pairings/suggest`
+- `POST /api/campaigns/:campaignId/tables/:gameId/teams`, `/start`, `/results`
+- `POST /api/campaigns/:campaignId/warbands/:rosterId/retire`, `/post-battle/advance`
+- `DELETE /api/campaigns/:campaignId/players/:userId` (only players without warbands)
+- `GET /api/campaigns/:campaignId/calendar.ics`
+
+### Roster and catalog API
+
 - `GET /api/health` checks the API and database connection.
 - `GET /api/warbands` lists catalogued warbands.
 - `GET /api/warbands/:warbandId/warrior-types?category=Hero` lists selectable Hero types, including any `maxCount` and dependent type limits; the `category` parameter also accepts `Henchman` and `Hired Sword`. Add `&includeUnavailable=true` to review prohibited and unverified combinations with their rule source.
@@ -98,7 +194,7 @@ standalone Mordheim development stack.
 - `POST /api/members/:memberId/injuries/old-wound` records a simulated or
   manually entered D6 pre-battle check.
 - `POST /api/members/:memberId/promote` promotes a Henchman only when its type is marked eligible for Lad's Got Talent.
-- `POST /api/members/:memberId/advance-purchases` buys an initial campaign Hero advancement with either `{ "stat": "A" }` or `{ "skillId": "..." }`, using the campaign's configured prices and limits.
+- `POST /api/members/:memberId/advance-purchases` buys an initial campaign Hero advancement with either `{ "stat": "A" }` or `{ "skillId": "..." }`, using the campaign's configured prices and limits. `{ "stat": "W", "startingBonus": true }` instead claims a free campaign starting bonus from the warband's pool.
 - `DELETE /api/members/:memberId/advances/:advanceId` undoes an eligible advancement; purchased awards refund their recorded price and reverse their purchased XP.
 - `GET /api/members/:memberId/equipment` returns the warrior's permitted equipment options and owned inventory.
 - `PUT /api/members/:memberId/mutations` replaces a Freebuild warrior's ordered mutation selections with `{ "mutationIds": ["..."] }`, charging or refunding the repriced difference. Campaign selections are fixed at recruitment.
